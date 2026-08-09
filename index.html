@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#222222">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Meine Rechnungen</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f3f3f3;color:#222}
+.w{max-width:1000px;margin:auto;padding:12px 12px 90px}
+.c{background:#fff;border-radius:14px;padding:18px;margin-bottom:14px}
+h1{margin:0 0 12px}h2{margin-top:0;font-size:20px}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+input,select,textarea{width:100%;padding:12px;border:1px solid #ccc;border-radius:8px;font-size:16px}
+button{border:0;border-radius:8px;padding:12px 14px;cursor:pointer;font-size:15px}
+.b{background:#222;color:#fff}.l{background:#e8e8e8}.red{background:#f1d2d2}
+.hide{display:none}
+table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px solid #ddd;text-align:left}th{background:#ddd}
+.r{text-align:right}.sum{font-size:21px;font-weight:bold;text-align:right;margin-top:12px}
+.nav{display:flex;position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #ccc;padding:6px;gap:5px;z-index:99}
+.nav button{flex:1;font-size:12px;min-height:54px;padding:7px}
+.statusOpen{background:#fff0bd}.statusPaid{background:#dcefdc}.statusCancelled{background:#f2d4d4}
+@media(max-width:700px){
+.g{grid-template-columns:1fr}
+thead{display:none}
+table,tbody,tr,td{display:block;width:100%}
+#items tr,#al tr,#cl tr{border:1px solid #ddd;border-radius:10px;padding:10px;margin-bottom:10px}
+#items td,#al td,#cl td{border:0;padding:4px 0}
+#items td:before{display:block;font-size:12px;font-weight:bold;color:#666}
+#items td:nth-child(1):before{content:"Bezeichnung"}
+#items td:nth-child(2):before{content:"Menge"}
+#items td:nth-child(3):before{content:"Einheit"}
+#items td:nth-child(4):before{content:"Einzelpreis"}
+#items td:nth-child(5):before{content:"Gesamt"}
+}
+</style>
+</head>
+<body>
+
+<div class="w">
+<div class="c"><h1>🧾 Meine Rechnungen</h1></div>
+
+<section id="new">
+<div class="c"><h2>Neue Rechnung</h2>
+<div class="g">
+<div>Rechnungsnummer<input id="nr" readonly></div>
+<div>Rechnungsdatum<input id="date" type="date"></div>
+<div>Lieferdatum / Leistungszeitraum<input id="service" type="date"></div>
+<div>Kunde<select id="sel" onchange="pick()"><option value="">-- auswählen --</option></select></div>
+</div></div>
+
+<div class="c"><h2>Kundendaten</h2>
+<div class="g">
+<input id="name" placeholder="Name / Firma">
+<input id="mail" placeholder="E-Mail">
+<input id="street" placeholder="Straße">
+<input id="city" placeholder="PLZ / Ort">
+</div></div>
+
+<div class="c"><h2>Positionen</h2>
+<table><thead><tr><th>Bezeichnung</th><th>Menge</th><th>Einheit</th><th>Einzelpreis</th><th>Gesamt</th><th></th></tr></thead>
+<tbody id="items"></tbody></table>
+<button class="l" onclick="add()">+ Position</button>
+<div class="sum">Gesamt: <span id="total">0,00 €</span></div><br>
+<button class="b" onclick="saveInvoice()">💾 Rechnung speichern</button>
+<button class="l" onclick="fresh()">🆕 Neue Rechnung</button>
+</div>
+</section>
+
+<section id="customers" class="hide">
+<div class="c"><h2>Kunden</h2>
+<div class="g">
+<input id="cn" placeholder="Name / Firma">
+<input id="ce" placeholder="E-Mail">
+<input id="cs" placeholder="Straße">
+<input id="cc" placeholder="PLZ / Ort">
+</div><br>
+<button class="b" onclick="saveCustomer()">+ Kunde speichern</button>
+</div>
+<div class="c"><tbody id="cl"></tbody></div>
+</section>
+
+<section id="archive" class="hide">
+<div class="c"><h2>Rechnungsarchiv</h2>
+<table><tbody id="al"></tbody></table>
+</div>
+</section>
+
+<section id="firm" class="hide">
+<div class="c"><h2>Firmendaten</h2>
+<div class="g">
+<input id="fc" placeholder="Name / Firma">
+<input id="fp" placeholder="Telefon">
+<input id="fs" placeholder="Straße">
+<input id="fe" placeholder="E-Mail">
+<input id="fci" placeholder="PLZ / Ort">
+<input id="fi" placeholder="IBAN">
+<input id="fb" placeholder="BIC">
+</div><br>
+<button class="b" onclick="saveFirm()">💾 Firmendaten speichern</button>
+</div>
+</section>
+
+<section id="backup" class="hide">
+<div class="c"><h2>Backup</h2>
+<button class="b" onclick="exportBackup()">⬇ Backup erstellen</button><br><br>
+<input id="backupFile" type="file" accept=".json">
+<button class="l" onclick="importBackup()">⬆ Backup einlesen</button>
+</div>
+</section>
+</div>
+
+<div class="nav">
+<button class="b" onclick="show('new')">🧾<br>Rechnung</button>
+<button class="l" onclick="show('customers')">👤<br>Kunden</button>
+<button class="l" onclick="show('archive')">📚<br>Archiv</button>
+<button class="l" onclick="show('firm')">🏢<br>Firma</button>
+<button class="l" onclick="show('backup')">💾<br>Backup</button>
+</div>
+
+<script>
+const $=x=>document.getElementById(x);
+const euro=n=>(+n||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+const today=()=>new Date().toISOString().slice(0,10);
+let C=JSON.parse(localStorage.getItem('customers')||'[]');
+let I=JSON.parse(localStorage.getItem('invoices')||'[]');
+
+function show(x){
+['new','customers','archive','firm','backup'].forEach(y=>$(y).classList.toggle('hide',y!==x));
+render();
+}
+function next(){
+let y=new Date().getFullYear();
+let a=I.map(x=>+x.nr).filter(n=>String(n).startsWith(y));
+return a.length?String(Math.max(...a)+1):y+'0001';
+}
+function fresh(){
+$('nr').value=next();$('date').value=today();$('service').value=today();
+['name','mail','street','city'].forEach(x=>$(x).value='');
+$('items').innerHTML='';add();calc();
+}
+function add(n='',q=1,u='Stk.',p=''){
+let r=document.createElement('tr');
+r.innerHTML=`<td><input class="n" value="${n}"></td>
+<td><input class="q" type="number" step=".01" value="${q}" oninput="calc()"></td>
+<td><select class="u"><option>Stk.</option><option>kg</option><option>Std.</option><option>m</option><option>m²</option><option>m³</option><option>Pauschal</option></select></td>
+<td><input class="p" type="number" step=".01" value="${p}" oninput="calc()"></td>
+<td class="line r">0,00 €</td>
+<td><button class="red" onclick="this.closest('tr').remove();calc()">✕</button></td>`;
+$('items').appendChild(r);r.querySelector('.u').value=u;calc();
+}
+function calc(){
+let s=0;
+document.querySelectorAll('#items tr').forEach(r=>{
+let q=+r.querySelector('.q').value||0,p=+r.querySelector('.p').value||0,t=q*p;
+r.querySelector('.line').textContent=euro(t);s+=t;
+});
+$('total').textContent=euro(s);return s;
+}
+function saveCustomer(){
+if(!$('cn').value)return alert('Bitte Namen eingeben.');
+C.push({id:Date.now(),n:$('cn').value,e:$('ce').value,s:$('cs').value,c:$('cc').value});
+localStorage.setItem('customers',JSON.stringify(C));render();
+}
+function pick(){
+let c=C.find(x=>String(x.id)==$('sel').value);if(!c)return;
+$('name').value=c.n;$('mail').value=c.e;$('street').value=c.s;$('city').value=c.c;
+}
+function saveInvoice(){
+if(!$('name').value)return alert('Bitte Kunde eingeben.');
+I.push({
+nr:$('nr').value,d:$('date').value,service:$('service').value,
+n:$('name').value,mail:$('mail').value,street:$('street').value,city:$('city').value,
+t:calc(),status:'offen',
+items:[...document.querySelectorAll('#items tr')].map(r=>({
+name:r.querySelector('.n').value,qty:+r.querySelector('.q').value||0,
+unit:r.querySelector('.u').value,price:+r.querySelector('.p').value||0
+}))
+});
+localStorage.setItem('invoices',JSON.stringify(I));alert('Rechnung gespeichert.');fresh();
+}
+function paid(i){
+if(I[i].status==='storniert')return;
+I[i].status=I[i].status==='bezahlt'?'offen':'bezahlt';
+localStorage.setItem('invoices',JSON.stringify(I));render();
+}
+function cancelInvoice(i){
+if(confirm('Rechnung '+I[i].nr+' wirklich stornieren?')){
+I[i].status='storniert';localStorage.setItem('invoices',JSON.stringify(I));render();
+}}
+function fmt(d){if(!d)return'';let a=d.split('-');return a[2]+'.'+a[1]+'.'+a[0]}
+function printInvoice(i){
+let x=I[i],S=JSON.parse(localStorage.getItem('firm')||'{}');
+let rows=(x.items||[]).map(a=>`<tr><td>${a.name}</td><td>${a.qty}</td><td>${a.unit}</td><td>${euro(a.price)}</td><td>${euro(a.qty*a.price)}</td></tr>`).join('');
+let w=window.open('','_blank');
+w.document.write(`<html><head><meta charset="utf-8"><style>
+body{font-family:Arial;padding:45px}table{width:100%;border-collapse:collapse;margin-top:25px}
+th,td{padding:9px;border-bottom:1px solid #ccc;text-align:left}th{background:#ddd}
+.sum{background:#ddd;padding:12px;text-align:right;font-weight:bold}
+</style></head><body>
+<div><strong>${S.company||''}</strong><br>${S.street||''}<br>${S.city||''}</div>
+<div style="text-align:right">Mobil: ${S.phone||''}<br>E-Mail: ${S.email||''}</div>
+<br><br><strong>${x.n}</strong><br>${x.street||''}<br>${x.city||''}
+<h1>Rechnung Nr. ${x.nr}</h1>
+<p>Rechnungsdatum: ${fmt(x.d)}<br>Leistungszeitraum: ${fmt(x.service)}</p>
+<table><tr><th>Bezeichnung</th><th>Menge</th><th>Einheit</th><th>Einzelpreis</th><th>Gesamt</th></tr>${rows}</table>
+<div class="sum">Rechnungsbetrag: ${euro(x.t)}</div>
+<p style="text-align:center"><strong>Kleinunternehmer gem. § 6 Abs. 1 Z 27 UStG</strong></p>
+<p>Zahlung innerhalb von 10 Tagen ab Rechnungsdatum ohne Abzüge.</p>
+${S.iban?'<p>IBAN: '+S.iban+(S.bic?'<br>BIC: '+S.bic:'')+'</p>':''}
+<button onclick="window.print()">Als PDF speichern / Drucken</button>
+</body></html>`);w.document.close();
+}
+function saveFirm(){
+let s={company:$('fc').value,phone:$('fp').value,street:$('fs').value,email:$('fe').value,city:$('fci').value,iban:$('fi').value,bic:$('fb').value};
+localStorage.setItem('firm',JSON.stringify(s));alert('Firmendaten gespeichert.');
+}
+function loadFirm(){
+let s=JSON.parse(localStorage.getItem('firm')||'{}');
+$('fc').value=s.company||'';$('fp').value=s.phone||'';$('fs').value=s.street||'';
+$('fe').value=s.email||'';$('fci').value=s.city||'';$('fi').value=s.iban||'';$('fb').value=s.bic||'';
+}
+function render(){
+$('sel').innerHTML='<option value="">-- auswählen --</option>'+C.map(c=>`<option value="${c.id}">${c.n}</option>`).join('');
+$('cl').innerHTML=C.map(c=>`<tr><td><strong>${c.n}</strong><br>${c.s||''}<br>${c.c||''}</td></tr>`).join('');
+$('al').innerHTML=I.map((x,i)=>`<tr>
+<td><strong>${x.nr}</strong><br>${fmt(x.d)}<br>${x.n}<br><strong>${euro(x.t)}</strong><br><br>
+<button class="${x.status==='bezahlt'?'statusPaid':x.status==='storniert'?'statusCancelled':'statusOpen'}" onclick="paid(${i})">${x.status}</button>
+<button class="l" onclick="printInvoice(${i})">PDF</button>
+<button class="l" onclick="cancelInvoice(${i})">Storno</button></td></tr>`).join('');
+}
+function exportBackup(){
+let data={customers:C,invoices:I,firm:JSON.parse(localStorage.getItem('firm')||'{}')};
+let blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='rechnungsapp_backup.json';a.click();
+}
+function importBackup(){
+let f=$('backupFile').files[0];if(!f)return alert('Datei auswählen.');
+let r=new FileReader();r.onload=()=>{try{
+let d=JSON.parse(r.result);C=d.customers||[];I=d.invoices||[];
+localStorage.setItem('customers',JSON.stringify(C));localStorage.setItem('invoices',JSON.stringify(I));
+localStorage.setItem('firm',JSON.stringify(d.firm||{}));loadFirm();render();fresh();alert('Backup wiederhergestellt.');
+}catch(e){alert('Ungültiges Backup.')}};r.readAsText(f);
+}
+if('serviceWorker' in navigator)navigator.serviceWorker.register('service-worker.js');
+loadFirm();render();fresh();
+</script>
+</body>
+</html>
