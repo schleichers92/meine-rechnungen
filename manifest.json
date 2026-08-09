@@ -1,0 +1,9 @@
+{
+  "name": "Meine Rechnungen",
+  "short_name": "Rechnungen",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "description": "Meine Rechnungs-App"
+}
